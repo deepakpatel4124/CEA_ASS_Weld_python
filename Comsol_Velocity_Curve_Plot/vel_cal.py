@@ -3,15 +3,14 @@ import matplotlib.pyplot as plt
 
 
 # File path to the text file
-file_path_receiver = r'E:\Weld FEM Simulation\Python_Comsol\201_Domain_02_09\Parent_Material\T1_201_Domain_PM.txt'  # Replace with your actual file path
-file_path_transducer = r'D:\Desktop\CEA_ASS_Weld_python\Post_Processing_Comsol_Results\transducer_fire.txt'  # Replace with your actual file path
+file_path_receiver = r'E:\Weld FEM Simulation\Python_Comsol\201_Domain_02_09\Weld_Region\small_correct_mesh\T32_201_Domain_improved_mesh.txt'  # Replace with your actual file path
+file_path_transducer = r'transducer_fire.txt'  # Replace with your actual file path
 
 # Constants
-transmiter_probe = 0
-cutoff_len = 1200    
-a = 3# Adjust the coefficient to change the curvature of the parabola
+transmiter_probe = 33
+threshold = 0.01 
+datapoint_offset = 1000
 
-total_receiver_probe = 64
 pitch =1 # mm
 thickness = 30 # mm
 
@@ -53,12 +52,12 @@ data_receiver = read_data(file_path_receiver)
 data_transducer = read_data(file_path_transducer)
 
 # Extract time and amplitude data for transducer
-time_transducer = data_transducer[:10000, 0]
-amplitude_transducer = -data_transducer[:10000, 1]
+time_transducer = data_transducer[:, 0]
+amplitude_transducer = -data_transducer[:, 1]
 
 # Extract time and amplitude data for receivers
-time_receiver = data_receiver[:10000, 0]
-amplitude_receivers = data_receiver[:10000, 1:]
+time_receiver = data_receiver[:, 0]
+amplitude_receivers = data_receiver[:, 1:]
 
 plt.imshow(amplitude_receivers, aspect ='auto')
 plt.colorbar()
@@ -67,20 +66,30 @@ plt.show()
 plt.plot(data_receiver[:, 0],data_receiver[:, 64])
 plt.show()
 
-###This is to cut unwanted signal)#####
-i = np.arange(0, 64)
-len_1 = np.argmax(amplitude_receivers[:,transmiter_probe])+cutoff_len + a * (transmiter_probe - i)**2
-BSCAN_plot = np.zeros((amplitude_receivers.shape))
-#Fill BSCAN_plot with data 
-for idx, length in enumerate(len_1):
-    BSCAN_plot[:int(length), idx] = amplitude_receivers[:int(length), idx]
+
+def process_signals(amplitude_receivers, threshold):
+    num_rows, num_cols = amplitude_receivers.shape
+    processed_signals = np.zeros_like(amplitude_receivers)
     
-plt.imshow(BSCAN_plot, aspect='auto', vmax = 1e-9)
+    for col in range(num_cols):
+        signal = amplitude_receivers[:, col]/np.max(amplitude_receivers)
+        # Find the first index where the signal crosses the threshold
+        crossing_index = np.argmax(signal > threshold)
+        
+        if signal[crossing_index] > threshold:
+            start_index = max(0, crossing_index - 1000)
+            end_index = min(num_rows, crossing_index + 1000)
+            processed_signals[start_index:end_index, col] = signal[start_index:end_index]
+    
+    return processed_signals
+
+processed_signals = process_signals(amplitude_receivers, threshold)
+
+# Plotting the processed signals
+plt.imshow(processed_signals, aspect='auto')
 plt.colorbar()
-plt.title('BSCAN Image with Zero Padding')
-plt.xlabel('Transducer')
-plt.ylabel('Data Points')
 plt.show()
+
 
 # Identify the peak in the transducer data
 peak_index_transducer = np.argmax(amplitude_transducer)
@@ -95,8 +104,7 @@ THETA=[]
 
 # Calculate time delays for each receiver probe
 for i in range(amplitude_receivers.shape[1]):
-    len_1 = np.argmax(amplitude_receivers[:,transmiter_probe])+cutoff_len + a * (transmiter_probe - i)**2
-    peak_index_receiver = np.argmax((amplitude_receivers[:int(len_1), i]))
+    peak_index_receiver = np.argmax(processed_signals[:,i])
     peak_time_receiver = time_receiver[peak_index_receiver]
     time_delays[i] = np.abs(peak_time_receiver - peak_time_transducer)
     peak_amplitude_receiver[i] = np.max((amplitude_receivers[:, i]))
@@ -119,7 +127,7 @@ plt.figure(figsize=(10, 6))
 plt.plot(THETA,VEL, marker = '.', color='r', label=f'Pressure (Pa), Transmiter Probe {transmiter_probe}')
 plt.xlabel('Angle(Degree)')
 plt.ylabel('Velocity (m/s)')
-plt.ylim(5200,6200)
+# plt.ylim(5200,6200)
 
 plt.title('Angle Dependent Ultrasonic Velocity')
 plt.legend()

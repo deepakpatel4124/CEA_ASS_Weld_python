@@ -4,18 +4,20 @@ import pandas as pd
 
 
 # Path to the Excel file
-file_path = 'Domain_Orientations.xlsx'
+file_path = r'Domain_Orientations.xlsx'
 df = pd.read_excel(file_path)
   
-C=[229e9, 229e9, 229e9, 131e9, 131e9, 131e9, 102e9, 102e9, 102e9]
+C=[229e9, 229e9, 229e9, 131e9, 131e9, 131e9, 102e9, 102e9, 102e9] # Considering that weld is cubic symmetry
 # C=[250e9, 250e9, 250e9, 155e9, 155e9, 155e9, 125e9, 125e9, 125e9]
 # C=[227e9, 244e9, 218e9, 109e9, 140e9, 146e9, 107e9, 119e9, 80e9]
+
+density = "8010"
 
 # Start COMSOL client
 client = mph.start()
 
 # Load the COMSOL model
-pymodel = client.load('201_Domain_26_08\Weld_Curve_3.mph')
+pymodel = client.load(r'Weld_201_domain_probe_83.mph')
 model = pymodel.java
 
 print("Running...")
@@ -93,11 +95,11 @@ for square_no in df['Square No.']:
     i = square_no
     mat = f'mat{i+1}'
     geom1_disksel = f'geom1_disksel{i}'
-    model.component("comp1").material().create(mat, "Common");
-    model.component("comp1").material(mat).selection().named(geom1_disksel);
-    model.component("comp1").material(mat).propertyGroup().create("Anisotropic", "Anisotropic");
+    # model.component("comp1").material().create(mat, "Common");
+    # model.component("comp1").material(mat).selection().named(geom1_disksel);
+    # model.component("comp1").material(mat).propertyGroup().create("Anisotropic", "Anisotropic");
     model.component("comp1").material(mat).propertyGroup("Anisotropic").set("D", Rot_E (C,get_angles(i)));
-    model.component("comp1").material(mat).propertyGroup("def").set("density", ["8010"]);
+    model.component("comp1").material(mat).propertyGroup("def").set("density", [density]);
     
     
 # Save the model with the updated interpolation function
